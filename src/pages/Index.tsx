@@ -9,9 +9,6 @@ const Index = () => {
     <div className="min-h-screen gradient-soft">
       <div className="max-w-6xl mx-auto px-6 py-12">
         <div className="text-center mb-16">
-          <div className="w-24 h-24 mx-auto mb-6 rounded-full gradient-primary flex items-center justify-center shadow-elevated">
-            <span className="text-5xl font-bold text-primary-foreground">L</span>
-          </div>
           <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-6">
             Welcome to Blind AI assistant app
           </h1>
