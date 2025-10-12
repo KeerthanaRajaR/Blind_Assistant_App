@@ -1,25 +1,73 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FloatingMic } from "@/components/shared/FloatingMic";
 import { ArrowLeft, Video, Phone, MapPin, Mic, Volume2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 
 const Guardian = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [isConnected, setIsConnected] = useState(false);
   const [isTalking, setIsTalking] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
-  const toggleConnection = () => {
-    setIsConnected(!isConnected);
-    
-    if ('speechSynthesis' in window) {
-      const message = !isConnected ? "Guardian connected" : "Guardian disconnected";
-      const utterance = new SpeechSynthesisUtterance(message);
-      window.speechSynthesis.speak(utterance);
+  const toggleConnection = async () => {
+    if (!isConnected) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: true, 
+          audio: true 
+        });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          streamRef.current = stream;
+        }
+        setIsConnected(true);
+        
+        if ('speechSynthesis' in window) {
+          const utterance = new SpeechSynthesisUtterance("Guardian connected");
+          window.speechSynthesis.speak(utterance);
+        }
+        
+        toast({
+          title: "Connected",
+          description: "Live video feed active",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Could not access camera",
+          variant: "destructive",
+        });
+      }
+    } else {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+      setIsConnected(false);
+      
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance("Guardian disconnected");
+        window.speechSynthesis.speak(utterance);
+      }
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
 
   return (
     <div className="min-h-screen gradient-soft p-6">
@@ -56,11 +104,14 @@ const Guardian = () => {
                 Live Video Feed
               </h3>
               <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-                {isConnected ? (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Video className="h-16 w-16 text-white/50 animate-pulse" />
-                  </div>
-                ) : (
+                <video 
+                  ref={videoRef}
+                  autoPlay 
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
+                {!isConnected && (
                   <div className="absolute inset-0 flex items-center justify-center bg-muted">
                     <p className="text-muted-foreground">Video feed not active</p>
                   </div>

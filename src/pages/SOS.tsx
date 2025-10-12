@@ -22,6 +22,30 @@ const SOS = () => {
       variant: "destructive",
     });
 
+    // Play alert sound
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.value = 800;
+    oscillator.type = 'sine';
+    gainNode.gain.value = 0.3;
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.2);
+    
+    setTimeout(() => {
+      const oscillator2 = audioContext.createOscillator();
+      oscillator2.connect(gainNode);
+      oscillator2.frequency.value = 600;
+      oscillator2.type = 'sine';
+      oscillator2.start(audioContext.currentTime);
+      oscillator2.stop(audioContext.currentTime + 0.2);
+    }, 300);
+
     // Speak confirmation
     if ('speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance("SOS sent successfully. Help is on the way.");

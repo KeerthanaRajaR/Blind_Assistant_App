@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -6,12 +6,36 @@ import { Input } from "@/components/ui/input";
 import { FloatingMic } from "@/components/shared/FloatingMic";
 import { ArrowLeft, Navigation as NavigationIcon, MapPin, Play, Square } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 
 const Navigation = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [isNavigating, setIsNavigating] = useState(false);
   const [destination, setDestination] = useState("");
   const [currentInstruction, setCurrentInstruction] = useState("");
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          toast({
+            title: "Location Error",
+            description: "Could not access your location",
+            variant: "destructive",
+          });
+        }
+      );
+    }
+  }, [toast]);
 
   const startNavigation = () => {
     if (!destination) return;
@@ -139,16 +163,40 @@ const Navigation = () => {
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="relative aspect-video bg-gradient-to-br from-primary/20 to-accent/20 rounded-xl overflow-hidden">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center">
-                    <NavigationIcon className="h-16 w-16 text-primary mx-auto mb-4 animate-pulse" />
-                    <p className="text-2xl font-bold text-foreground">Navigating to</p>
-                    <p className="text-xl text-muted-foreground">{destination}</p>
+              <div className="relative aspect-video bg-gradient-to-br from-primary/20 to-accent/20 rounded-xl overflow-hidden border-2 border-primary/30">
+                {/* Map visualization */}
+                <div className="absolute inset-0">
+                  <div className="w-full h-full bg-[url('https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/pin-s+9333ea({userLocation?.lng || -122.4194},{userLocation?.lat || 37.7749})/{userLocation?.lng || -122.4194},{userLocation?.lat || 37.7749},13,0/600x400@2x?access_token=pk.eyJ1IjoibG92YWJsZSIsImEiOiJjbTN1N3E5MmMwMDRvMmlzaDF2ZGJscnVhIn0.123')] bg-cover bg-center opacity-40" />
+                  
+                  {/* Route overlay */}
+                  <svg className="absolute inset-0 w-full h-full" viewBox="0 0 400 300">
+                    <path 
+                      d="M 50 250 Q 100 200, 200 150 T 350 50" 
+                      stroke="hsl(var(--primary))" 
+                      strokeWidth="4" 
+                      fill="none"
+                      strokeDasharray="10,5"
+                      className="animate-pulse"
+                    />
+                    <circle cx="50" cy="250" r="8" fill="hsl(var(--primary))" />
+                    <circle cx="350" cy="50" r="8" fill="hsl(var(--accent))" />
+                  </svg>
+                  
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center bg-background/80 backdrop-blur-sm p-4 rounded-lg">
+                      <NavigationIcon className="h-12 w-12 text-primary mx-auto mb-2" />
+                      <p className="text-xl font-bold text-foreground">Navigating to</p>
+                      <p className="text-lg text-muted-foreground">{destination}</p>
+                      {userLocation && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          From: {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
                 
-                {/* Mock route visualization */}
+                {/* Progress bar */}
                 <div className="absolute top-4 left-4 right-4">
                   <div className="h-1 bg-primary/30 rounded-full">
                     <div className="h-full w-1/3 bg-primary rounded-full animate-pulse"></div>
