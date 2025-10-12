@@ -22,29 +22,49 @@ const SOS = () => {
       variant: "destructive",
     });
 
-    // Play alert sound
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    oscillator.frequency.value = 800;
-    oscillator.type = 'sine';
-    gainNode.gain.value = 0.3;
-    
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.2);
-    
-    setTimeout(() => {
-      const oscillator2 = audioContext.createOscillator();
-      oscillator2.connect(gainNode);
-      oscillator2.frequency.value = 600;
-      oscillator2.type = 'sine';
-      oscillator2.start(audioContext.currentTime);
-      oscillator2.stop(audioContext.currentTime + 0.2);
-    }, 300);
+    // Play alert sound with proper audio context handling
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // First beep
+      const oscillator1 = audioContext.createOscillator();
+      const gainNode1 = audioContext.createGain();
+      oscillator1.connect(gainNode1);
+      gainNode1.connect(audioContext.destination);
+      oscillator1.frequency.value = 800;
+      oscillator1.type = 'sine';
+      gainNode1.gain.value = 0.3;
+      oscillator1.start(audioContext.currentTime);
+      oscillator1.stop(audioContext.currentTime + 0.3);
+      
+      // Second beep
+      setTimeout(() => {
+        const oscillator2 = audioContext.createOscillator();
+        const gainNode2 = audioContext.createGain();
+        oscillator2.connect(gainNode2);
+        gainNode2.connect(audioContext.destination);
+        oscillator2.frequency.value = 600;
+        oscillator2.type = 'sine';
+        gainNode2.gain.value = 0.3;
+        oscillator2.start(audioContext.currentTime);
+        oscillator2.stop(audioContext.currentTime + 0.3);
+      }, 400);
+      
+      // Third beep
+      setTimeout(() => {
+        const oscillator3 = audioContext.createOscillator();
+        const gainNode3 = audioContext.createGain();
+        oscillator3.connect(gainNode3);
+        gainNode3.connect(audioContext.destination);
+        oscillator3.frequency.value = 800;
+        oscillator3.type = 'sine';
+        gainNode3.gain.value = 0.3;
+        oscillator3.start(audioContext.currentTime);
+        oscillator3.stop(audioContext.currentTime + 0.3);
+      }, 800);
+    } catch (error) {
+      console.error('Error playing alert sound:', error);
+    }
 
     // Speak confirmation
     if ('speechSynthesis' in window) {

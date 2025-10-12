@@ -13,7 +13,7 @@ const Index = () => {
             <span className="text-5xl font-bold text-primary-foreground">L</span>
           </div>
           <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-6">
-            Welcome to Lovable
+            Welcome to Blind AI assistant app
           </h1>
           <p className="text-2xl text-muted-foreground max-w-2xl mx-auto mb-8">
             Your AI-powered companion for independence, safety, and confidence

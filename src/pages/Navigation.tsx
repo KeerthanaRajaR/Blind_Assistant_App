@@ -20,20 +20,42 @@ const Navigation = () => {
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setUserLocation({
+          const location = {
             lat: position.coords.latitude,
             lng: position.coords.longitude
+          };
+          setUserLocation(location);
+          console.log('Location retrieved:', location);
+          toast({
+            title: "Location Retrieved",
+            description: `Lat: ${location.lat.toFixed(4)}, Lng: ${location.lng.toFixed(4)}`,
           });
         },
         (error) => {
           console.error('Error getting location:', error);
           toast({
             title: "Location Error",
-            description: "Could not access your location",
+            description: "Could not access your location. Please enable location services.",
             variant: "destructive",
           });
+          // Set a default location as fallback
+          setUserLocation({
+            lat: 37.7749,
+            lng: -122.4194
+          });
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
         }
       );
+    } else {
+      toast({
+        title: "Geolocation Not Supported",
+        description: "Your browser doesn't support geolocation",
+        variant: "destructive",
+      });
     }
   }, [toast]);
 
