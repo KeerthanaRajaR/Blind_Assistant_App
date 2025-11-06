@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FloatingMic } from "@/components/shared/FloatingMic";
-import { ArrowLeft, AlertCircle, MapPin, Phone } from "lucide-react";
+import { ArrowLeft, AlertCircle, MapPin, Phone, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 
@@ -11,16 +11,43 @@ const SOS = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [sosActive, setSosActive] = useState(false);
-  const [location] = useState({ lat: 37.7749, lng: -122.4194, address: "123 Main St, San Francisco, CA" });
+  const [contacts, setContacts] = useState<Array<{id: string, name: string, phone: string}>>([]);
+  const [location] = useState({ 
+    lat: 11.020811, 
+    lng: 76.935376, 
+    address: "Coimbatore, Tamil Nadu, India" 
+  });
+
+  // Load contacts from localStorage
+  useEffect(() => {
+    const savedContacts = localStorage.getItem("guardianContacts");
+    if (savedContacts) {
+      setContacts(JSON.parse(savedContacts));
+    }
+  }, []);
 
   const handleSOS = () => {
     setSosActive(true);
     
-    toast({
-      title: "SOS Activated!",
-      description: "Emergency alert sent to your guardian",
-      variant: "destructive",
-    });
+    // Send alert to all guardians
+    if (contacts.length > 0) {
+      contacts.forEach(contact => {
+        // In a real app, this would integrate with a messaging or calling service
+        console.log(`SOS alert sent to ${contact.name} at ${contact.phone}`);
+      });
+      
+      toast({
+        title: "SOS Activated!",
+        description: `Emergency alert sent to ${contacts.length} guardian(s)`,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "No Guardians Found",
+        description: "Please add guardians in the Guardian module",
+        variant: "destructive",
+      });
+    }
 
     // Play alert sound with proper audio context handling
     try {
@@ -81,6 +108,28 @@ const SOS = () => {
     setTimeout(() => setSosActive(false), 5000);
   };
 
+  const callGuardian = (phone: string) => {
+    // In a real app, this would initiate a phone call
+    toast({
+      title: "Calling Guardian",
+      description: `Initiating call to ${phone}`,
+    });
+    
+    // Simulate phone call initiation
+    console.log(`Initiating call to ${phone}`);
+  };
+
+  const messageGuardian = (phone: string) => {
+    // In a real app, this would send a text message
+    toast({
+      title: "Messaging Guardian",
+      description: `Sending message to ${phone}`,
+    });
+    
+    // Simulate message sending
+    console.log(`Sending message to ${phone}`);
+  };
+
   return (
     <div className="min-h-screen gradient-soft p-6">
       <div className="max-w-4xl mx-auto">
@@ -130,19 +179,54 @@ const SOS = () => {
                 </div>
                 <p className="text-accessible text-muted-foreground">{location.address}</p>
                 <p className="text-sm text-muted-foreground mt-2">
-                  Coordinates: {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
+                  Coordinates: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
                 </p>
               </Card>
 
               <Card className="p-6 bg-accent/5 border-accent/20">
                 <div className="flex items-center gap-3 mb-4">
                   <Phone className="h-6 w-6 text-accent" />
-                  <h3 className="font-semibold text-lg">Guardian Contact</h3>
+                  <h3 className="font-semibold text-lg">Guardian Contacts</h3>
                 </div>
-                <p className="text-accessible text-muted-foreground">+1 234 567 8900</p>
-                <Button variant="outline" className="mt-3 w-full">
-                  Call Guardian
-                </Button>
+                {contacts.length > 0 ? (
+                  <div className="space-y-3">
+                    {contacts.map((contact) => (
+                      <div key={contact.id} className="flex justify-between items-center p-2 bg-background rounded">
+                        <div>
+                          <p className="font-medium">{contact.name}</p>
+                          <p className="text-sm text-muted-foreground">{contact.phone}</p>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => callGuardian(contact.phone)}
+                          >
+                            <Phone className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => messageGuardian(contact.phone)}
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-muted-foreground">No guardians added</p>
+                    <Button 
+                      variant="outline" 
+                      className="mt-2"
+                      onClick={() => navigate("/guardian")}
+                    >
+                      Add Guardians
+                    </Button>
+                  </div>
+                )}
               </Card>
             </div>
 
