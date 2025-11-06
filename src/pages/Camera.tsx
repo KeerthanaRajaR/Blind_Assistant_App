@@ -5,35 +5,132 @@ import { Card } from "@/components/ui/card";
 import { FloatingMic } from "@/components/shared/FloatingMic";
 import { ArrowLeft, Play, Pause, Radio } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import * as tf from "@tensorflow/tfjs";
+import * as cocoSsd from "@tensorflow-models/coco-ssd";
 
 const Camera = () => {
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isLoadingModel, setIsLoadingModel] = useState(false);
+  const [model, setModel] = useState<cocoSsd.ObjectDetection | null>(null);
   const [detectedObjects, setDetectedObjects] = useState<Array<{ name: string; distance: string; color: string }>>([]);
+  const detectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Load COCO-SSD model
   useEffect(() => {
-    // Simulate object detection
-    if (isStreaming) {
-      const interval = setInterval(() => {
-        const mockObjects = [
-          { name: "Chair", distance: "1.2m", color: "text-yellow-600" },
-          { name: "Table", distance: "2.5m", color: "text-green-600" },
-          { name: "Door", distance: "3.8m", color: "text-green-600" },
-        ];
-        setDetectedObjects(mockObjects);
+    const loadModel = async () => {
+      setIsLoadingModel(true);
+      try {
+        await tf.ready();
+        const loadedModel = await cocoSsd.load();
+        setModel(loadedModel);
+      } catch (error) {
+        console.error("Error loading model:", error);
+      } finally {
+        setIsLoadingModel(false);
+      }
+    };
 
-        // Announce detection
-        if ('speechSynthesis' in window && mockObjects.length > 0) {
-          const announcement = `Detected: ${mockObjects[0].name} at ${mockObjects[0].distance}`;
+    loadModel();
+
+    return () => {
+      if (detectionIntervalRef.current) {
+        clearInterval(detectionIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Object detection function
+  const detectObjects = async () => {
+    if (!model || !videoRef.current || !canvasRef.current) return;
+
+    try {
+      const predictions = await model.detect(videoRef.current);
+      
+      // Draw bounding boxes on canvas
+      const ctx = canvasRef.current.getContext("2d");
+      if (ctx) {
+        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        ctx.lineWidth = 2;
+        ctx.font = "16px Arial";
+        
+        const newObjects = [];
+        for (let i = 0; i < Math.min(predictions.length, 3); i++) {
+          const prediction = predictions[i];
+          
+          // Draw bounding box
+          ctx.strokeStyle = "#FF0000";
+          ctx.fillStyle = "#FF0000";
+          ctx.beginPath();
+          ctx.rect(
+            prediction.bbox[0],
+            prediction.bbox[1],
+            prediction.bbox[2],
+            prediction.bbox[3]
+          );
+          ctx.stroke();
+          
+          // Draw label
+          ctx.fillStyle = "#FF0000";
+          const text = `${prediction.class} (${Math.round(prediction.score * 100)}%)`;
+          const textWidth = ctx.measureText(text).width;
+          ctx.fillRect(
+            prediction.bbox[0],
+            prediction.bbox[1] - 20,
+            textWidth + 10,
+            20
+          );
+          
+          ctx.fillStyle = "#FFFFFF";
+          ctx.fillText(
+            text,
+            prediction.bbox[0] + 5,
+            prediction.bbox[1] - 5
+          );
+          
+          // Determine distance color based on position (simplified)
+          let color = "text-green-600"; // Safe distance
+          if (prediction.bbox[2] * prediction.bbox[3] > 100000) { // Large bounding box = close
+            color = "text-red-600";
+          } else if (prediction.bbox[2] * prediction.bbox[3] > 50000) { // Medium bounding box = near
+            color = "text-yellow-600";
+          }
+          
+          newObjects.push({
+            name: prediction.class,
+            distance: `${(100 - prediction.score * 50).toFixed(1)}m`, // Simplified distance
+            color
+          });
+        }
+        
+        setDetectedObjects(newObjects);
+        
+        // Announce first detected object
+        if (newObjects.length > 0 && 'speechSynthesis' in window) {
+          const announcement = `Detected: ${newObjects[0].name} at ${newObjects[0].distance}`;
           const utterance = new SpeechSynthesisUtterance(announcement);
           window.speechSynthesis.speak(utterance);
         }
-      }, 5000);
-
-      return () => clearInterval(interval);
+      }
+    } catch (error) {
+      console.error("Error during object detection:", error);
     }
-  }, [isStreaming]);
+  };
+
+  // Start object detection interval
+  useEffect(() => {
+    if (isStreaming && model) {
+      detectionIntervalRef.current = setInterval(detectObjects, 1000); // Detect every second
+    }
+    
+    return () => {
+      if (detectionIntervalRef.current) {
+        clearInterval(detectionIntervalRef.current);
+      }
+    };
+  }, [isStreaming, model]);
 
   const startStream = async () => {
     try {
@@ -44,15 +141,28 @@ const Camera = () => {
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        setIsStreaming(true);
         
-        if ('speechSynthesis' in window) {
-          const utterance = new SpeechSynthesisUtterance("Camera streaming started");
-          window.speechSynthesis.speak(utterance);
-        }
+        // Wait for video to load metadata
+        videoRef.current.onloadedmetadata = () => {
+          if (canvasRef.current && videoRef.current) {
+            canvasRef.current.width = videoRef.current.videoWidth;
+            canvasRef.current.height = videoRef.current.videoHeight;
+          }
+          setIsStreaming(true);
+          
+          if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance("Camera streaming started");
+            window.speechSynthesis.speak(utterance);
+          }
+        };
       }
     } catch (err) {
       console.error("Error accessing camera:", err);
+      
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance("Error accessing camera");
+        window.speechSynthesis.speak(utterance);
+      }
     }
   };
 
@@ -63,6 +173,19 @@ const Camera = () => {
       videoRef.current.srcObject = null;
       setIsStreaming(false);
       setDetectedObjects([]);
+      
+      if (detectionIntervalRef.current) {
+        clearInterval(detectionIntervalRef.current);
+        detectionIntervalRef.current = null;
+      }
+      
+      // Clear canvas
+      if (canvasRef.current) {
+        const ctx = canvasRef.current.getContext("2d");
+        if (ctx) {
+          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        }
+      }
       
       if ('speechSynthesis' in window) {
         const utterance = new SpeechSynthesisUtterance("Camera streaming stopped");
@@ -104,12 +227,24 @@ const Camera = () => {
               ref={videoRef}
               autoPlay
               playsInline
+              muted
               className="w-full h-full object-cover"
+            />
+            
+            <canvas
+              ref={canvasRef}
+              className="absolute top-0 left-0 w-full h-full"
             />
             
             {!isStreaming && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                 <p className="text-white text-2xl font-semibold">Camera Preview</p>
+              </div>
+            )}
+
+            {isLoadingModel && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                <p className="text-white text-xl font-semibold">Loading detection model...</p>
               </div>
             )}
 
@@ -135,9 +270,10 @@ const Camera = () => {
                 size="xl"
                 onClick={startStream}
                 className="w-full"
+                disabled={isLoadingModel}
               >
                 <Play className="mr-2 h-5 w-5" />
-                Start Camera
+                {isLoadingModel ? "Loading Model..." : "Start Camera"}
               </Button>
             ) : (
               <Button
